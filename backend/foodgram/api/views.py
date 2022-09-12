@@ -9,8 +9,12 @@ from django.db.models.expressions import Exists, OuterRef, Value
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet
+
+from .models import IngredientQuantity
+from .permissions import IsAuthorOrAdminOrReadOnly
+from recipes.models import RecipeIngredient
 from recipes.models import (FavoriteRecipe, Ingredient, Recipe, ShoppingCart,
-                            Subscribe, Tag)
+                            Subscribe, Tag,)
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
@@ -23,7 +27,7 @@ from rest_framework.permissions import (SAFE_METHODS, AllowAny,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 
-from .serializers import (IngredientSerializer, RecipeReadSerializer,
+from .serializers import (IngredientSerializer, IngredientsEditSerializer, RecipeReadSerializer,
                           RecipeWriteSerializer, SubscribeRecipeSerializer,
                           SubscribeSerializer, TagSerializer, TokenSerializer,
                           UserCreateSerializer, UserListSerializer,
@@ -143,7 +147,7 @@ class UsersViewSet(UserViewSet):
     """Пользователи."""
 
     serializer_class = UserListSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthorOrAdminOrReadOnly,)
 
     def get_queryset(self):
         return (
@@ -180,13 +184,58 @@ class RecipesViewSet(viewsets.ModelViewSet):
     """Создание новых рецептов"""
 
     queryset = Recipe.objects.all()
+    serializer_class = RecipeWriteSerializer,
     filterset_class = RecipeFilter
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    http_method_names = ['post', 'patch', 'get', 'put', 'delete',]
+    permission_classes = (IsAuthorOrAdminOrReadOnly,)
 
     def get_serializer_class(self):
         if self.request.method in SAFE_METHODS:
             return RecipeReadSerializer
         return RecipeWriteSerializer
+
+    def create_ingredients(self, recipe, ingredients):
+        IngredientQuantity.objects.bulk_create(
+            [IngredientQuantity(
+                recipe=recipe,
+                ingredient=ingredient['id'],
+                amount=ingredient['amount']) for ingredient in ingredients]
+        )
+
+    def create(self, request, *args, **kwargs):
+        serializer = RecipeWriteSerializer(
+        data=request.data,
+        context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        ingredients = serializer.validated_data.pop("ingredients")
+        tags = data.pop("tags")
+        recipe = Recipe.objects.create(author=request.user,**serializer.validated_data)
+        recipe.tags.set(tags)
+        self.create_ingredients(recipe, ingredients)
+        serializer = RecipeReadSerializer(
+                instance=recipe, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+    def update(self, request, *args, **kwargs):
+        serializer = RecipeWriteSerializer(
+            data=request.data,
+            context={'request': request})
+        serializer.is_valid()
+        ingredients = serializer.validated_data.pop("ingredients")
+        tags = serializer.validated_data.pop("tags")
+        recipe = get_object_or_404(Recipe, id=kwargs["pk"])
+        Ingredient.objects.filter(recipe=recipe).delete()
+        recipe.tags.set(tags)
+        self.create_ingredients(recipe, ingredients)
+        Recipe.objects.filter(id=recipe.id).update(
+        **serializer.validated_data)
+        recipe = Recipe.objects.get(id=recipe.id)
+        recipe.save()
+        serializer = RecipeReadSerializer(
+        instance=recipe, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def get_queryset(self):
         return (
@@ -216,6 +265,22 @@ class RecipesViewSet(viewsets.ModelViewSet):
                 "tags", "ingredients", "recipe", "shopping_cart", "favorite_recipe"
             )
         )
+
+    @staticmethod
+    def post_method_for_actions(request, pk, serializers):
+        data = {'user': request.user.id, 'recipe': pk}
+        serializer = serializers(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def delete_method_for_actions(request, pk, model):
+        user = request.user
+        recipe = get_object_or_404(Recipe, id=pk)
+        model_obj = get_object_or_404(model, user=user, recipe=recipe)
+        model_obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -274,6 +339,8 @@ class IngredientsViewSet(PermissionAndPaginationMixin, viewsets.ModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     filterset_class = IngredientFilter
+
+
 
 
 @api_view(["post"])
