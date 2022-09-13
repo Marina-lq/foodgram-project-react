@@ -7,7 +7,8 @@ from users.models import User
 class TagsMultipleChoiceField(filters.fields.MultipleChoiceField):
     def validate(self, value):
         if self.required and not value:
-            raise ValidationError(self.error_messages["required"], code="required")
+            raise ValidationError(self.error_messages["required"],
+                                  code="required")
         for val in value:
             if val in self.choices and not self.valid_value(val):
                 raise ValidationError(
@@ -37,7 +38,8 @@ class RecipeFilter(filters.FilterSet):
     is_favorited = filters.BooleanFilter(
         widget=filters.widgets.BooleanWidget(), label="В избранных."
     )
-    tags = filters.AllValuesMultipleFilter(field_name="tags__slug", label="Ссылка")
+    tags = filters.AllValuesMultipleFilter(field_name="tags__slug",
+                                           label="Ссылка")
 
     class Meta:
         model = Recipe

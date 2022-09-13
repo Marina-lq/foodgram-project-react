@@ -1,12 +1,11 @@
 import django.contrib.auth.password_validation as validators
 from django.contrib.auth import authenticate
-from django.contrib.auth.hashers import make_password
-from django.shortcuts import get_object_or_404
 from drf_base64.fields import Base64ImageField
-from .models import IngredientQuantity
 from recipes.models import Ingredient, Recipe, RecipeIngredient, Subscribe, Tag
 from rest_framework import serializers
 from users.models import User
+
+from .models import IngredientQuantity
 
 ERR_MSG = "Не удается войти в систему с предоставленными учетными данными."
 
@@ -148,8 +147,8 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             ingredient = items["id"]
             ingredient_list.append(ingredient.id)
             ingredient_final = set(ingredient_list)
-            if  len(ingredient_list) != len (ingredient_final):
-               raise serializers.ValidationError
+            if len(ingredient_list) != len(ingredient_final):
+                raise serializers.ValidationError
         return data
 
     def validate_cooking_time(self, cooking_time):
@@ -164,7 +163,6 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             if int(ingredient.get("amount")) < 1:
                 raise serializers.ValidationError("Количество ингредиента >= 1!")
         return ingredients
-
 
     def to_representation(self, instance):
         return RecipeReadSerializer(

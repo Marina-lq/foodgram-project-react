@@ -134,6 +134,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+FILENAME = "shoppingcart.pdf"
+
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -147,5 +149,4 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "api.pagination.LimitPageNumberPagination",
     "PAGE_SIZE": 6,
-
 }

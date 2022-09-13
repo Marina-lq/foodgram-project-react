@@ -1,40 +1,56 @@
 import io
-
-from api.filters import IngredientFilter, RecipeFilter
-from api.permissions import IsAdminOrReadOnly
-from django.contrib.auth import get_user_model
+import reportlab
+from rest_framework import generics, status, viewsets
+from rest_framework.authtoken.models import Token
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.decorators import action, api_view
+from rest_framework.permissions import (
+    SAFE_METHODS,
+    AllowAny,
+    IsAuthenticated,
+)
+from rest_framework.response import Response
+from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.db.models.aggregates import Count, Sum
 from django.db.models.expressions import Exists, OuterRef, Value
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
+from .serializers import (
+    IngredientSerializer,
+    RecipeReadSerializer,
+    RecipeWriteSerializer,
+    SubscribeRecipeSerializer,
+    SubscribeSerializer,
+    TagSerializer,
+    TokenSerializer,
+    UserCreateSerializer,
+    UserListSerializer,
+    UserPasswordSerializer,
+)
 from djoser.views import UserViewSet
-
-from .models import IngredientQuantity
-from .permissions import IsAuthorOrAdminOrReadOnly
-from recipes.models import RecipeIngredient
-from recipes.models import (FavoriteRecipe, Ingredient, Recipe, ShoppingCart,
-                            Subscribe, Tag,)
+from foodgram.settings import FILENAME
+from recipes.models import (
+    FavoriteRecipe,
+    Ingredient,
+    Recipe,
+    RecipeIngredient,
+    ShoppingCart,
+    Subscribe,
+    Tag,
+)
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
-from rest_framework import generics, status, viewsets
-from rest_framework.authtoken.models import Token
-from rest_framework.authtoken.views import ObtainAuthToken
-from rest_framework.decorators import action, api_view
-from rest_framework.permissions import (SAFE_METHODS, AllowAny,
-                                        IsAuthenticated,
-                                        IsAuthenticatedOrReadOnly)
-from rest_framework.response import Response
+from users.models import User
 
-from .serializers import (IngredientSerializer, IngredientsEditSerializer, RecipeReadSerializer,
-                          RecipeWriteSerializer, SubscribeRecipeSerializer,
-                          SubscribeSerializer, TagSerializer, TokenSerializer,
-                          UserCreateSerializer, UserListSerializer,
-                          UserPasswordSerializer)
+from api.filters import IngredientFilter, RecipeFilter
+from api.permissions import IsAdminOrReadOnly
+from .permissions import IsAuthorOrAdminOrReadOnly
 
-User = get_user_model()
-FILENAME = "shoppingcart.pdf"
+reportlab.rl_config.TTFSearchPath.append(str(settings.BASE_DIR) + "/data")
+
+pdfmetrics.registerFont(TTFont("Vera", "Vera.ttf"))
 
 
 class GetObjectMixin:
@@ -184,9 +200,15 @@ class RecipesViewSet(viewsets.ModelViewSet):
     """Создание новых рецептов"""
 
     queryset = Recipe.objects.all()
-    serializer_class = RecipeWriteSerializer,
+    serializer_class = (RecipeWriteSerializer,)
     filterset_class = RecipeFilter
-    http_method_names = ['post', 'patch', 'get', 'put', 'delete',]
+    http_method_names = [
+        "post",
+        "patch",
+        "get",
+        "put",
+        "delete",
+    ]
     permission_classes = (IsAuthorOrAdminOrReadOnly,)
 
     def get_serializer_class(self):
@@ -195,51 +217,50 @@ class RecipesViewSet(viewsets.ModelViewSet):
         return RecipeWriteSerializer
 
     def create_ingredients(self, recipe, ingredients):
-        IngredientQuantity.objects.bulk_create(
-            [IngredientQuantity(
-                recipe=recipe,
-                ingredient=ingredient['id'],
-                amount=ingredient['amount']) for ingredient in ingredients]
+        RecipeIngredient.objects.bulk_create(
+            [
+                RecipeIngredient(
+                    recipe=recipe,
+                    ingredient=ingredient.get("id"),
+                    amount=ingredient.get("amount"),
+                )
+                for ingredient in ingredients
+            ]
         )
 
     def create(self, request, *args, **kwargs):
         serializer = RecipeWriteSerializer(
-        data=request.data,
-        context={'request': request})
+            data=request.data, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         ingredients = serializer.validated_data.pop("ingredients")
         tags = data.pop("tags")
-        recipe = Recipe.objects.create(author=request.user,**serializer.validated_data)
+        recipe = Recipe.objects.create(author=request.user, **serializer.validated_data)
         recipe.tags.set(tags)
         self.create_ingredients(recipe, ingredients)
-        serializer = RecipeReadSerializer(
-                instance=recipe, context={"request": request})
+        serializer = RecipeReadSerializer(instance=recipe, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-
-    def update(self, request, *args, **kwargs):
-        serializer = RecipeWriteSerializer(
-            data=request.data,
-            context={'request': request})
-        serializer.is_valid()
-        ingredients = serializer.validated_data.pop("ingredients")
-        tags = serializer.validated_data.pop("tags")
-        recipe = get_object_or_404(Recipe, id=kwargs["pk"])
-        Ingredient.objects.filter(recipe=recipe).delete()
-        recipe.tags.set(tags)
-        self.create_ingredients(recipe, ingredients)
-        Recipe.objects.filter(id=recipe.id).update(
-        **serializer.validated_data)
-        recipe = Recipe.objects.get(id=recipe.id)
-        recipe.save()
-        serializer = RecipeReadSerializer(
-        instance=recipe, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    def perform_update(self, serializer):
+        data = serializer.validated_data
+        ingredients = data.pop("ingredients")
+        tags = data.pop("tags", None)
+        instance = serializer.save()
+        if ingredients:
+            instance.ingredients.clear()
+            self.create_ingredients(instance, ingredients)
+        if tags:
+            instance.tags.set(tags)
 
     def get_queryset(self):
-        return (
-            Recipe.objects.annotate(
+
+        temp = Recipe.objects.select_related("author").prefetch_related(
+            "tags", "ingredients", "recipe", "shopping_cart", "favorite_recipe"
+        )
+
+        if self.request.user.is_authenticated:
+            return temp.annotate(
                 is_favorited=Exists(
                     FavoriteRecipe.objects.filter(
                         user=self.request.user, recipe=OuterRef("id")
@@ -251,25 +272,15 @@ class RecipesViewSet(viewsets.ModelViewSet):
                     )
                 ),
             )
-            .select_related("author")
-            .prefetch_related(
-                "tags", "ingredients", "recipe", "shopping_cart", "favorite_recipe"
-            )
-            if self.request.user.is_authenticated
-            else Recipe.objects.annotate(
-                is_in_shopping_cart=Value(False),
-                is_favorited=Value(False),
-            )
-            .select_related("author")
-            .prefetch_related(
-                "tags", "ingredients", "recipe", "shopping_cart", "favorite_recipe"
-            )
+        return temp.annotate(
+            is_in_shopping_cart=Value(False),
+            is_favorited=Value(False),
         )
 
     @staticmethod
     def post_method_for_actions(request, pk, serializers):
-        data = {'user': request.user.id, 'recipe': pk}
-        serializer = serializers(data=data, context={'request': request})
+        data = {"user": request.user.id, "recipe": pk}
+        serializer = serializers(data=data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -300,8 +311,9 @@ class RecipesViewSet(viewsets.ModelViewSet):
             .annotate(amount=Sum("recipe__amount"))
             .order_by()
         )
+
         page.setFont("Vera", 14)
-        if shopping_cart:
+        if len(shopping_cart) != 0:
             indent = 20
             page.drawString(x_position, y_position, "Cписок покупок:")
             for index, recipe in enumerate(shopping_cart, start=1):
@@ -341,14 +353,12 @@ class IngredientsViewSet(PermissionAndPaginationMixin, viewsets.ModelViewSet):
     filterset_class = IngredientFilter
 
 
-
-
 @api_view(["post"])
 def set_password(request):
     """Изменить пароль."""
 
     serializer = UserPasswordSerializer(data=request.data, context={"request": request})
-    if serializer.is_valid():
+    if serializer.is_valid(raise_exception=True):
         serializer.save()
         return Response({"message": "Пароль изменен!"}, status=status.HTTP_201_CREATED)
     return Response(
