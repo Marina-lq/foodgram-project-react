@@ -12,7 +12,7 @@ services:
       timeout: 5s
       retries: 5
   web:
-    image: marina2222/foodgram-backend:v1.1
+    image: marina2222/foodgram-backend:v1.0
     restart: always
     volumes:
       - static_value:/app/static/
