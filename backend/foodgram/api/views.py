@@ -50,7 +50,7 @@ from .permissions import IsAuthorOrAdminOrReadOnly
 
 reportlab.rl_config.TTFSearchPath.append(str(settings.BASE_DIR) + "/data")
 
-pdfmetrics.registerFont(TTFont("Vera", "Vera.ttf"))
+pdfmetrics.registerFont(TTFont("arial", "arial.ttf"))
 
 
 class GetObjectMixin:
@@ -156,7 +156,8 @@ class AuthToken(ObtainAuthToken):
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
         token, created = Token.objects.get_or_create(user=user)
-        return Response({"auth_token": token.key}, status=status.HTTP_201_CREATED)
+        return Response({"auth_token": token.key},
+                        status=status.HTTP_201_CREATED)
 
 
 class UsersViewSet(UserViewSet):
@@ -192,7 +193,8 @@ class UsersViewSet(UserViewSet):
         user = request.user
         queryset = Subscribe.objects.filter(user=user)
         pages = self.paginate_queryset(queryset)
-        serializer = SubscribeSerializer(pages, many=True, context={"request": request})
+        serializer = SubscribeSerializer(pages, many=True, context={"request":
+                                         request})
         return self.get_paginated_response(serializer.data)
 
 
@@ -236,10 +238,13 @@ class RecipesViewSet(viewsets.ModelViewSet):
         data = serializer.validated_data
         ingredients = serializer.validated_data.pop("ingredients")
         tags = data.pop("tags")
-        recipe = Recipe.objects.create(author=request.user, **serializer.validated_data)
+        recipe = Recipe.objects.create(author=request.user,
+                                       **serializer.validated_data)
         recipe.tags.set(tags)
-        self.create_ingredients(recipe, ingredients)
-        serializer = RecipeReadSerializer(instance=recipe, context={"request": request})
+        self.create_ingredients(recipe,
+                                ingredients)
+        serializer = RecipeReadSerializer(instance=recipe,
+                                          context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def perform_update(self, serializer):
@@ -296,13 +301,14 @@ class RecipesViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    @action(detail=False, methods=["get"], permission_classes=(IsAuthenticated,))
+    @action(detail=False, methods=["get"],
+            permission_classes=(IsAuthenticated,))
     def download_shopping_cart(self, request):
         """Загружаем список с ингредиентами."""
 
         buffer = io.BytesIO()
         page = canvas.Canvas(buffer)
-        pdfmetrics.registerFont(TTFont("Vera", "Vera.ttf"))
+        pdfmetrics.registerFont(TTFont("arial", "arial.ttf"))
         x_position, y_position = 50, 800
         shopping_cart = (
             request.user.shopping_cart.recipe.values(
@@ -312,7 +318,7 @@ class RecipesViewSet(viewsets.ModelViewSet):
             .order_by()
         )
 
-        page.setFont("Vera", 14)
+        page.setFont("arial", 14)
         if len(shopping_cart) != 0:
             indent = 20
             page.drawString(x_position, y_position, "Cписок покупок:")
@@ -331,7 +337,7 @@ class RecipesViewSet(viewsets.ModelViewSet):
             page.save()
             buffer.seek(0)
             return FileResponse(buffer, as_attachment=True, filename=FILENAME)
-        page.setFont("Vera", 24)
+        page.setFont("arial", 24)
         page.drawString(x_position, y_position, "Cписок покупок пуст!")
         page.save()
         buffer.seek(0)
@@ -357,10 +363,12 @@ class IngredientsViewSet(PermissionAndPaginationMixin, viewsets.ModelViewSet):
 def set_password(request):
     """Изменить пароль."""
 
-    serializer = UserPasswordSerializer(data=request.data, context={"request": request})
+    serializer = UserPasswordSerializer(data=request.data,
+                                        context={"request": request})
     if serializer.is_valid(raise_exception=True):
         serializer.save()
-        return Response({"message": "Пароль изменен!"}, status=status.HTTP_201_CREATED)
+        return Response({"message": "Пароль изменен!"},
+                        status=status.HTTP_201_CREATED)
     return Response(
         {"error": "Введите верные данные!"}, status=status.HTTP_400_BAD_REQUEST
     )
