@@ -1,16 +1,21 @@
-import csv
+import json
 
-from django.conf import settings
-from django.core.management import BaseCommand
+from django.core.management.base import BaseCommand
+
 from recipes.models import Ingredient
 
 
 class Command(BaseCommand):
-    help = "Загрузка из csv файла"
+    help = 'Load ingredients from json'
 
-    def handle(self, *args, **kwargs):
-        data_path = settings.BASE_DIR
-        with open(f"{data_path}/data/ingredients.csv", "r", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            Ingredient.objects.bulk_create(Ingredient(**data) for data in reader)
-        self.stdout.write(self.style.SUCCESS("Все ингридиенты загружены!"))
+    def handle(self, *args, **options):
+        db_objects = []
+        with open('ingredients.json') as f:
+            data = json.load(f)
+
+            for ingredient_data in data:
+                db_objects.append(
+                    Ingredient(**ingredient_data)
+                )
+
+        Ingredient.objects.bulk_create(db_objects)
