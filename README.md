@@ -11,6 +11,7 @@ https://github.com/Marina-lq/foodgram-project-react
 Создайте и активируйте виртуальное окружение
 python -m venv venv
 source venv/Scripts/activate
+
 Перейдите в папку infra
 cd infra/
 
@@ -18,7 +19,8 @@ cd infra/
 docker-compose up -d
 
 Внутри контейнера web примените миграции, 
-соберите статику, загрузите ингредиенты и создайте суперпользователя
+соберите статику, 
+загрузите ингредиенты и создайте суперпользователя
 
 docker-compose exec web bash
 python manage.py makemigrations
@@ -28,4 +30,5 @@ python manage.py load_ingredients
 python manage.py createsuperuser
 Теперь сайт доступен по адресу localhost
 Дополнительно
-Чтобы иметь возможность создавать свои рецепты, создайте необходимые вам теги для рецептов в админ-панели Django
+Чтобы иметь возможность создавать свои рецепты, 
+создайте необходимые вам теги для рецептов в админ-панели Django.
