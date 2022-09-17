@@ -29,6 +29,9 @@ python manage.py collectstatic
 python manage.py load_ingredients
 python manage.py createsuperuser
 Теперь сайт доступен по адресу localhost
+
 Дополнительно
+
 Чтобы иметь возможность создавать свои рецепты, 
+
 создайте необходимые вам теги для рецептов в админ-панели Django.
