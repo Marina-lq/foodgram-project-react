@@ -1,35 +1,26 @@
-Продуктовый помощник Foodgram
+Foodgram - сервис, где каждый может публиковать свои самые вкусные рецепты, подписываться на других авторов и добавлять рецепты в избранное и список покупок.
+Проверить работу можно по адресу http://158.160.3.36/
+Тестовые данные администратора: email: lq-sun@mail.ru password: 2222
+Подготовка и запуск проекта
+Клонируйте репозиторий
+https://github.com/Marina-lq/foodgram-project-react
 
-«Продуктовый помощник»: приложение, на котором пользователи публикуют рецепты, подписываться на публикации других авторов и добавлять рецепты в избранное. Сервис «Список покупок» позволит пользователю создавать список продуктов, которые нужно купить для приготовления выбранных блюд.
+Создайте и активируйте виртуальное окружение
+python -m venv venv
+source venv/Scripts/activate
+Перейдите в папку infra
+cd infra/
 
-Запуск проекта через Docker
-В папке infra выполнить команду, что бы собрать контейнер:
-sudo docker-compose up -d
-Для доступа к контейнеру выполните следующие команды:
+Запустите команду для сборки контейнеров
+docker-compose up -d
 
-sudo docker-compose exec backend python manage.py makemigrations
-sudo docker-compose exec backend python manage.py migrate --noinput
-sudo docker-compose exec backend python manage.py createsuperuser
-sudo docker-compose exec backend python manage.py collectstatic --no-input
-Дополнительно можно наполнить DB ингредиентами и тэгами:
-
-sudo docker-compose exec backend python manage.py load_tags
-sudo docker-compose exec backend python manage.py load_ingrs
-
-Запуск проекта в dev-режиме
-Установить и активировать виртуальное окружение
-source /venv/bin/activated
-
-Установить зависимости из файла requirements.txt
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-
-Выполнить миграции:
+Внутри контейнера web примените миграции, соберите статику, загрузите ингредиенты и создайте суперпользователя
+docker-compose exec web bash
+python manage.py makemigrations
 python manage.py migrate
-
-В папке с файлом manage.py выполнить команду:
-python manage.py runserver
-Документация к API доступна после запуска
-
-http://127.0.0.1/api/docs/
-Автор: Судоплатова Марина
+python manage.py collectstatic
+python manage.py load_ingredients
+python manage.py createsuperuser
+Теперь сайт доступен по адресу localhost
+Дополнительно
+Чтобы иметь возможность создавать свои рецепты, создайте необходимые вам теги для рецептов в админ-панели Django
