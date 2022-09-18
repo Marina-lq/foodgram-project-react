@@ -23,7 +23,6 @@ services:
     env_file:
       - ./.env
   frontend:
-    restart: always
     image: marina2222/foodgram-frontend:v1.0
     volumes:
       - ../frontend/:/app/result_build/
