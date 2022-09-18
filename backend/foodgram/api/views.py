@@ -213,6 +213,19 @@ class RecipesViewSet(viewsets.ModelViewSet):
     ]
     permission_classes = (IsAuthorOrAdminOrReadOnly,)
 
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated:
+            return Recipe.objects.annotate(
+                is_favorited=Exists(FavoriteRecipe.objects.filter(
+                    user=user, recipe=OuterRef('id'))
+                ),
+                is_in_shopping_cart=Exists(ShoppingCart.objects.filter(
+                    user=user, recipe=OuterRef('id'))
+                )
+            ).select_related('author',)
+        return Recipe.objects.all()
+
     def get_serializer_class(self):
         if self.request.method in SAFE_METHODS:
             return RecipeReadSerializer
@@ -257,19 +270,6 @@ class RecipesViewSet(viewsets.ModelViewSet):
             self.create_ingredients(instance, ingredients)
         if tags:
             instance.tags.set(tags)
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.is_authenticated:
-            return Recipe.objects.annotate(
-                is_favorited=Exists(FavoriteRecipe.objects.filter(
-                    user=user, recipe=OuterRef('id'))
-                ),
-                is_in_shopping_cart=Exists(ShoppingCart.objects.filter(
-                    user=user, recipe=OuterRef('id'))
-                )
-            ).select_related('author',)
-        return Recipe.objects.all()
 
     @staticmethod
     def post_method_for_actions(request, pk, serializers):
