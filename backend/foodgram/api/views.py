@@ -259,28 +259,17 @@ class RecipesViewSet(viewsets.ModelViewSet):
             instance.tags.set(tags)
 
     def get_queryset(self):
-
-        temp = Recipe.objects.select_related("author").prefetch_related(
-            "tags", "ingredients", "recipe", "shopping_cart", "favorite_recipe"
-        )
-
-        if self.request.user.is_authenticated:
-            return temp.annotate(
-                is_favorited=Exists(
-                    FavoriteRecipe.objects.filter(
-                        user=self.request.user, recipe=OuterRef("id")
-                    )
+        user = self.request.user
+        if user.is_authenticated:
+            return Recipe.objects.annotate(
+                is_favorited=Exists(FavoriteRecipe.objects.filter(
+                    user=user, recipe=OuterRef('id'))
                 ),
-                is_in_shopping_cart=Exists(
-                    ShoppingCart.objects.filter(
-                        user=self.request.user, recipe=OuterRef("id")
-                    )
-                ),
-            )
-        return temp.annotate(
-            is_in_shopping_cart=Value(False),
-            is_favorited=Value(False),
-        )
+                is_in_shopping_cart=Exists(ShoppingCart.objects.filter(
+                    user=user, recipe=OuterRef('id'))
+                )
+            ).select_related('author',)
+        return Recipe.objects.all()
 
     @staticmethod
     def post_method_for_actions(request, pk, serializers):
