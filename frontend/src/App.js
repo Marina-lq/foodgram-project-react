@@ -1,28 +1,28 @@
-import logo from './logo.svg';
 import './App.css';
-import { Switch, Route, useHistory, Redirect, useLocation } from 'react-router-dom'
-import React, { useState, useEffect } from 'react'
-import { Header, Footer, ProtectedRoute } from './components'
-import api from './api'
-import styles from './styles.module.css'
-import cn from 'classnames'
-import hamburgerImg from './images/hamburger-menu.png'
-
-import {
-  Main,
-  Cart,
-  SignIn,
-  Subscriptions,
-  Favorites,
-  SingleCard,
-  SignUp,
-  RecipeEdit,
-  RecipeCreate,
-  User,
-  ChangePassword
-} from './pages'
 
 import { AuthContext, UserContext } from './contexts'
+import {
+  Cart,
+  ChangePassword,
+  Favorites,
+  Main,
+  RecipeCreate,
+  RecipeEdit,
+  SignIn,
+  SignUp,
+  SingleCard,
+  Subscriptions,
+  User
+} from './pages'
+import { Footer, Header, ProtectedRoute } from './components'
+import React, { useEffect, useState } from 'react'
+import { Redirect, Route, Switch, useHistory, useLocation } from 'react-router-dom'
+
+import api from './api'
+import cn from 'classnames'
+import hamburgerImg from './images/hamburger-menu.png'
+import logo from './logo.svg';
+import styles from './styles.module.css'
 
 function App() {
   const [ loggedIn, setLoggedIn ] = useState(null)
@@ -264,7 +264,7 @@ function App() {
             />
           </Route>
           <Route path='/'>
-            {loggedIn ? <Redirect to='/recipes' /> : <Redirect to='/signin'/>}
+            {loggedIn ? <Redirect to='/recipes' /> : <Redirect to='/recipes'/>}
           </Route>
         </Switch>
         <Footer />
